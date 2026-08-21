@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, BinaryIO, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
@@ -92,16 +93,27 @@ def _remote_url(base: str, relative: str, *, directory: bool = False) -> str:
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
-def _request(config: WebDavArchiveConfig, method: str, relative: str, *, data: bytes | None = None) -> tuple[int, bytes]:
+def _request(
+    config: WebDavArchiveConfig,
+    method: str,
+    relative: str,
+    *,
+    data: bytes | BinaryIO | None = None,
+    content_length: int | None = None,
+) -> tuple[int, bytes]:
     url = _remote_url(config.url, relative, directory=method == "MKCOL")
     token = base64.b64encode(f"{config.user}:{config.password}".encode()).decode()
     headers = {"Authorization": f"Basic {token}", "User-Agent": "parse-hub-bot/1.0"}
     if method == "PROPFIND":
         headers["Depth"] = "0"
     if data is not None:
+        if content_length is None:
+            if not isinstance(data, bytes):
+                raise ValueError("流式 WebDAV PUT 必须提供 Content-Length")
+            content_length = len(data)
         headers["Content-Type"] = "application/octet-stream"
-        headers["Content-Length"] = str(len(data))
-    request = Request(url, data=data, headers=headers, method=method)
+        headers["Content-Length"] = str(content_length)
+    request = Request(url, data=cast(Any, data), headers=headers, method=method)
     try:
         with urlopen(request, timeout=120) as response:
             return response.status, response.read()
@@ -155,13 +167,14 @@ def _upload_sync(
     uploaded: list[str] = []
     for path in files:
         remote = posixpath.join(folder, month, f"{stamp}_{path.name}")
-        data = path.read_bytes()
-        status, _ = _request(config, "PUT", remote, data=data)
+        local_size = path.stat().st_size
+        with path.open("rb") as stream:
+            status, _ = _request(config, "PUT", remote, data=stream, content_length=local_size)
         if status not in {200, 201, 204}:
             raise RuntimeError(f"WebDAV PUT 失败: status={status} path={remote}")
         remote_size = _remote_size(config, remote)
-        if remote_size != len(data):
-            raise RuntimeError(f"WebDAV 大小校验失败: path={remote} remote={remote_size} local={len(data)}")
+        if remote_size != local_size:
+            raise RuntimeError(f"WebDAV 大小校验失败: path={remote} remote={remote_size} local={local_size}")
         uploaded.append(remote)
     return uploaded
 

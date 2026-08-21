@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PATCH_SCRIPT = REPO_ROOT / "docker" / "patch_parsehub_youtube.py"
 
 
-def test_patch_sets_4g_group_limit_and_quality_first_av1_sort(tmp_path: Path) -> None:
+def test_patch_sets_unlimited_quality_first_av1_sort(tmp_path: Path) -> None:
     target = tmp_path / "youtube.py"
     target.write_text(
         '''class YtbVideoParseResult:\n'
@@ -29,6 +29,7 @@ def test_patch_sets_4g_group_limit_and_quality_first_av1_sort(tmp_path: Path) ->
 
     assert result.returncode == 0, result.stderr
     patched = target.read_text(encoding="utf-8")
-    assert '"-f",\n            "(bv*+ba/b)[filesize<4G] / (bv*+ba/b)[filesize_approx<4G]",' in patched
+    assert '"-f",\n            "bv*+ba/b",' in patched
     assert '"-S",\n            "res,fps,hdr,vcodec:av01",' in patched
+    assert "filesize" not in patched
     assert "+codec:h264,filesize~500M" not in patched

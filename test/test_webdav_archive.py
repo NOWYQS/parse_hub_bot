@@ -106,7 +106,9 @@ def test_existing_directory_uses_trailing_slash_propfind(webdav_server: str) -> 
     _ensure_directory(config, "X")
 
 
-def test_archive_output_groups_original_files_by_platform_and_verifies_size(tmp_path: Path, webdav_server: str) -> None:
+def test_archive_output_groups_original_files_by_platform_and_verifies_size(
+    tmp_path: Path, webdav_server: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     original = tmp_path / "原视频.mp4"
     original.write_bytes(b"original-media")
     nested = tmp_path / "assets" / "cover.jpg"
@@ -115,6 +117,11 @@ def test_archive_output_groups_original_files_by_platform_and_verifies_size(tmp_
     processed = tmp_path / "processed" / "converted.mp4"
     processed.parent.mkdir()
     processed.write_bytes(b"converted")
+
+    def fail_if_buffered(path: Path) -> bytes:
+        raise AssertionError(f"WebDAV upload must stream instead of buffering {path}")
+
+    monkeypatch.setattr(Path, "read_bytes", fail_if_buffered)
 
     config = WebDavArchiveConfig(webdav_server, "archive-user", "secret")
     archived = asyncio.run(

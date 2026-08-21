@@ -9,7 +9,7 @@ OLD = '''            "-S",
             "+codec:h264,filesize~500M",
 '''
 NEW = '''            "-f",
-            "(bv*+ba/b)[filesize<4G] / (bv*+ba/b)[filesize_approx<4G]",
+            "bv*+ba/b",
             "-S",
             "res,fps,hdr,vcodec:av01",
 '''

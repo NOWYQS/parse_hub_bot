@@ -16,6 +16,7 @@ from services import ParseService
 from services.media import ProcessedMedia, process_media_files
 from services.media import progress as fmt_progress
 from services.webdav import WebDavArchiveConfig, archive_output
+from services.youtube_variants import needs_telegram_variant, prepare_telegram_video
 from utils.helpers import to_list
 
 logger = logger.bind(name="Pipeline")
@@ -241,6 +242,27 @@ class ParsePipeline:
             if archived is None:
                 shutil.rmtree(download_result.output_dir, ignore_errors=True)
                 return None
+
+        if (
+            not self._skip_media_processing
+            and p.id == "youtube"
+            and needs_telegram_variant(download_result)
+        ):
+            await self._reporter.report(self._t("TG 版本下载中..."))
+            telegram_result = await self._step(
+                "TG 降级下载",
+                lambda: prepare_telegram_video(
+                    parse_result,
+                    download_result,
+                    proxy=pl_cfg.roll_downloader_proxy(p.id),
+                    callback=progress_cb,
+                ),
+                timeout=60 * 30,
+            )
+            if telegram_result is None:
+                shutil.rmtree(download_result.output_dir, ignore_errors=True)
+                return None
+            download_result = telegram_result
 
         # ── 3. 媒体处理 ──
         await self._reporter.report(self._t("处 理 中..."))
