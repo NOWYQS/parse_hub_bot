@@ -131,3 +131,26 @@ def test_archive_output_groups_original_files_by_platform_and_verifies_size(tmp_
     assert _WebDavHandler.files["/dav/X/202608/21110405_原视频.mp4"] == b"original-media"
     assert _WebDavHandler.files["/dav/X/202608/21110405_cover.jpg"] == b"cover"
     assert not any("processed" in path for path in _WebDavHandler.files)
+
+
+def test_archive_skips_symlinks_escaping_output_dir(tmp_path: Path, webdav_server: str) -> None:
+    original = tmp_path / "video.mp4"
+    original.write_bytes(b"original-media")
+    outside = tmp_path.parent / "outside-secret.txt"
+    outside.write_bytes(b"secret-bytes")
+    (tmp_path / "leak.txt").symlink_to(outside)
+
+    config = WebDavArchiveConfig(webdav_server, "archive-user", "secret")
+    archived = asyncio.run(
+        archive_output(
+            tmp_path,
+            platform_id="telegram",
+            raw_url="https://t.me/example/123",
+            config=config,
+            now=datetime(2026, 8, 21, 3, 4, 5, tzinfo=UTC),
+        )
+    )
+
+    assert archived == ["Telegram/202608/21110405_video.mp4"]
+    assert _WebDavHandler.files["/dav/Telegram/202608/21110405_video.mp4"] == b"original-media"
+    assert not any("leak" in path for path in _WebDavHandler.files)

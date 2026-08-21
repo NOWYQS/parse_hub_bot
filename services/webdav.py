@@ -67,11 +67,20 @@ def platform_folder(platform_id: str) -> str:
 
 
 def _archive_files(output_dir: Path) -> list[Path]:
-    return sorted(
-        p
-        for p in output_dir.rglob("*")
-        if p.is_file() and "processed" not in p.relative_to(output_dir).parts
-    )
+    root = output_dir.resolve()
+    files: list[Path] = []
+    for p in output_dir.rglob("*"):
+        try:
+            resolved = p.resolve()
+            resolved.relative_to(root)
+        except (OSError, ValueError):
+            continue
+        if not resolved.is_file():
+            continue
+        if "processed" in p.relative_to(output_dir).parts:
+            continue
+        files.append(p)
+    return sorted(files)
 
 
 def _remote_url(base: str, relative: str, *, directory: bool = False) -> str:
