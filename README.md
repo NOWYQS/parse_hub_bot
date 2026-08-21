@@ -96,6 +96,7 @@ uv run bot.py
 ## ⚙️ 配置说明
 
 - **环境变量:** 基础配置
+- **可选 WebDAV 归档:** 设置 `WEBDAV_URL`、`WEBDAV_USER`、`WEBDAV_PASS` 后，原始解析文件会按 `平台/YYYYMM/DDHHMMSS_原文件名` 保存；凭据只应放在本地 `.env`，不要提交到仓库。
 - **平台配置 (可选):** 平台代理和 Cookie
 
 ### 📝 环境变量

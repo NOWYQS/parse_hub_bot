@@ -15,6 +15,7 @@ from log import logger
 from services import ParseService
 from services.media import ProcessedMedia, process_media_files
 from services.media import progress as fmt_progress
+from services.webdav import WebDavArchiveConfig, archive_output
 from utils.helpers import to_list
 
 logger = logger.bind(name="Pipeline")
@@ -223,6 +224,23 @@ class ParsePipeline:
         if download_result is None:
             return None
         logger.debug(f"下载完成: output_dir={download_result.output_dir}")
+
+        webdav_config = WebDavArchiveConfig.from_env()
+        if webdav_config:
+            await self._reporter.report(self._t("保 存 中..."))
+            archived = await self._step(
+                "WebDAV 保存",
+                lambda: archive_output(
+                    download_result.output_dir,
+                    platform_id=p.id,
+                    raw_url=self._raw_url,
+                    config=webdav_config,
+                ),
+                timeout=60 * 60,
+            )
+            if archived is None:
+                shutil.rmtree(download_result.output_dir, ignore_errors=True)
+                return None
 
         # ── 3. 媒体处理 ──
         await self._reporter.report(self._t("处 理 中..."))
