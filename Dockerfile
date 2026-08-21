@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
+RUN .venv/bin/python docker/patch_parsehub_youtube.py
 
 FROM python:3.12-slim AS runtime
 
