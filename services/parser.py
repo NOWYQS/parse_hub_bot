@@ -5,6 +5,7 @@ from parsehub.types import (
     AnyParseResult,
 )
 
+import services.youtube_cookie_compat  # noqa: F401  # YouTube cookie 文件路径兼容补丁
 from core import pl_cfg
 from log import logger
 
