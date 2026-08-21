@@ -13,13 +13,19 @@ NEW = '''            "-f",
             "-S",
             "res,fps,hdr,vcodec:av01",
 '''
+OLD_MATCH = '    __match__ = r"^(http(s)?://).*youtu(be|.be)?(\\.com)?/(?!(live|post))(?!@).+"'
+NEW_MATCH = '    __match__ = r"^(http(s)?://).*youtu(be|.be)?(\\.com)?/(?!(post))(?!@).+"'
 
 
 def patch_file(path: Path) -> None:
     source = path.read_text(encoding="utf-8")
     if OLD not in source:
         raise RuntimeError(f"expected ParseHub YouTube format block not found: {path}")
-    path.write_text(source.replace(OLD, NEW, 1), encoding="utf-8")
+    if OLD_MATCH not in source:
+        raise RuntimeError(f"expected ParseHub YouTube URL matcher not found: {path}")
+    source = source.replace(OLD, NEW, 1)
+    source = source.replace(OLD_MATCH, NEW_MATCH, 1)
+    path.write_text(source, encoding="utf-8")
 
 
 def installed_youtube_module() -> Path:
